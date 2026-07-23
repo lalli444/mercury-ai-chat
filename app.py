@@ -9,17 +9,9 @@ from models import db, User, Chat
 from chat_storage import get_chat, save_chat, create_new_chat, get_all_chats, delete_chat, rename_chat, search_chats
 
 # Load environment variables from .env file
-
 load_dotenv()
 
-
 app = Flask(__name__)
-@app.errorhandler(500)
-def internal_error(error):
-    print("🔥 500 Error:", error)
-    import traceback
-    traceback.print_exc()
-    return "Internal Server Error", 500
 
 # ====== CONFIGURATION ======
 API_KEY = os.getenv('MERCURY_API_KEY')
@@ -29,9 +21,9 @@ API_URL = "https://api.inceptionlabs.ai/v1/chat/completions"
 app.secret_key = 'your-secret-key-here-change-this-in-production'
 
 # Database configuration (SQLite)
-import os
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'instance', 'users.db')
+import os as _os
+BASE_DIR = _os.path.abspath(_os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + _os.path.join(BASE_DIR, 'instance', 'users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize the database
@@ -46,6 +38,11 @@ login_manager.login_view = 'login'  # redirect to login page if not logged in
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# ====== CREATE DATABASE TABLES (RUNS ON STARTUP) ======
+# This ensures tables are created whether we run with `py app.py` or `gunicorn`
+with app.app_context():
+    db.create_all()
+    print("✅ Database tables created!")
 
 # ====== PAGE ROUTES ======
 
@@ -116,8 +113,6 @@ def logout():
 
 # ====== CHAT API ENDPOINTS ======
 
-
-
 @app.route('/api/chats', methods=['GET'])
 @login_required
 def api_get_chats():
@@ -177,7 +172,9 @@ def api_search():
     results = search_chats(query, user_id)
     return jsonify(results)
 
+
 # ====== MAIN CHAT ENDPOINT (with saving) ======
+
 @app.route('/chat', methods=['POST'])
 @login_required
 def chat():
@@ -255,9 +252,5 @@ def chat():
 
 # ====== RUN THE SERVER ======
 if __name__ == '__main__':
-    # Create database tables if they don't exist
-    with app.app_context():
-        db.create_all()
-        print("✅ Database tables created!")
-    
+    # The database tables are already created above, but we keep this for local development
     app.run(debug=True)
