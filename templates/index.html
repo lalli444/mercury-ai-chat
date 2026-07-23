@@ -39,6 +39,12 @@
             <h1 id="chatTitle">Lalli AI</h1>
             <p id="chatSubtitle">Your friendly AI assistant</p>
         </div>
+        <!-- Voice Mode Toggle -->
+<div class="voice-controls" style="display: flex; justify-content: flex-end; padding: 5px 28px; gap: 10px; background: rgba(255,255,255,0.2);">
+    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #4a5568; cursor: pointer;">
+        <input type="checkbox" id="voice-toggle" checked> 🔊 Auto-read replies
+    </label>
+</div>
 
         <!-- MESSAGES AREA -->
         <div class="chat-messages" id="messages">
@@ -52,11 +58,16 @@
         </div>
 
         <!-- INPUT AREA -->
-        <div class="chat-input">
-            <input type="text" id="user-input" placeholder="Type your message..." />
-            <button id="send-btn">Send</button>
-        </div>
-    </div>
+      <div class="chat-input">
+    <input type="text" id="user-input" placeholder="Type your message..." />
+    
+    <!-- NEW: Microphone Button -->
+    <button id="mic-btn" title="Click to speak">
+        <i class="fas fa-microphone"></i>
+    </button>
+    
+    <button id="send-btn">Send</button>
+</div>
 
     <!-- ===== JAVASCRIPT ===== -->
     <script>
@@ -72,6 +83,83 @@
 
         // ----- State -----
         let currentChatId = null;    // ID of the chat we are currently viewing
+        // ============================================================
+// 🎤 VOICE AI: Microphone & Text-to-Speech Logic
+// ============================================================
+
+const micBtn = document.getElementById('mic-btn');
+const voiceToggle = document.getElementById('voice-toggle');
+let recognition = null;
+let isListening = false;
+
+// Check if browser supports microphone
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    // When you speak and results come in
+    recognition.onresult = function(event) {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) finalTranscript += transcript;
+            else interimTranscript += transcript;
+        }
+        if (finalTranscript) {
+            userInput.value = finalTranscript;
+            micBtn.classList.remove('listening');
+            isListening = false;
+            micBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            // Auto-send the message after speaking
+            setTimeout(sendMessage, 300);
+        } else if (interimTranscript) {
+            userInput.value = interimTranscript;
+        }
+    };
+
+    recognition.onend = function() {
+        micBtn.classList.remove('listening');
+        isListening = false;
+        micBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+    };
+
+    recognition.onerror = function(event) {
+        console.error('Speech error:', event.error);
+        micBtn.classList.remove('listening');
+        isListening = false;
+        micBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+    };
+
+    // Click handler for the Mic button
+    micBtn.addEventListener('click', function() {
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+            isListening = true;
+            micBtn.classList.add('listening');
+            micBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        }
+    });
+} else {
+    // Hide mic button if browser doesn't support it
+    micBtn.style.display = 'none';
+}
+
+// Function to speak the AI's reply out loud
+function speakText(text) {
+    if (!voiceToggle || !voiceToggle.checked) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
         let allChats = [];          // Full list of chats (for search filtering)
 
         // ----- Helper Functions -----
@@ -287,6 +375,7 @@
                 
                 // Add bot reply
                 addMessage(data.reply, 'bot');
+                speakText(data.reply);
                 
                 // Update sidebar (new title, timestamp)
                 loadChatList();
