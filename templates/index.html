@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mercury AI Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        
+        <!-- HEADER -->
+        <div class="chat-header">
+            <h1>🤖 Mercury AI</h1>
+            <p>Your AI assistant</p>
+        </div>
+        
+        <!-- MESSAGES AREA -->
+        <div class="chat-messages" id="messages">
+            <!-- Bot welcome message -->
+            <div class="message bot-message">
+                Hello! I'm Mercury AI. How can I help you today?
+            </div>
+        </div>
+        
+        <!-- INPUT AREA -->
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Type your message...">
+            <button id="send-btn">Send</button>
+        </div>
+        
+    </div>
+
+    <!-- ========== JAVASCRIPT STARTS HERE ========== -->
+    <script>
+        // Get references to the HTML elements we need
+        const messagesContainer = document.getElementById('messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-btn');
+
+        // Function to add a message to the chat
+        function addMessage(text, sender) {
+            // Create a new div element
+            const messageDiv = document.createElement('div');
+            // Add the base class 'message' and a class for the sender
+            messageDiv.classList.add('message', sender + '-message');
+            // Set the text content
+            messageDiv.textContent = text;
+            // Append the new message to the messages container
+            messagesContainer.appendChild(messageDiv);
+            // Scroll down to show the latest message
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Function to send the user's message to the server
+        async function sendMessage() {
+            // Get the text from the input field and trim whitespace
+            const message = userInput.value.trim();
+            if (message === '') return;  // Do nothing if empty
+
+            // Display the user's message in the chat
+            addMessage(message, 'user');
+
+            // Clear the input field
+            userInput.value = '';
+
+            // Disable the send button to prevent double submissions
+            sendButton.disabled = true;
+            sendButton.textContent = 'Sending...';
+
+            try {
+                // Send the message to the Flask server
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                // Parse the JSON response
+                const data = await response.json();
+
+                // Display the bot's reply
+                addMessage(data.reply, 'bot');
+            } catch (error) {
+                // If something goes wrong, show an error message
+                addMessage('Sorry, something went wrong. Please try again.', 'bot');
+                console.error('Error:', error);
+            } finally {
+                // Re-enable the send button
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send';
+                // Focus the input for the next message
+                userInput.focus();
+            }
+        }
+
+        // Event listener for the Send button click
+        sendButton.addEventListener('click', sendMessage);
+
+        // Event listener for pressing Enter in the input field
+        userInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Focus the input when the page loads
+        userInput.focus();
+
+        console.log('Chat JavaScript is ready!');
+    </script>
+    <!-- ========== JAVASCRIPT ENDS HERE ========== -->
+</body>
+</html>
