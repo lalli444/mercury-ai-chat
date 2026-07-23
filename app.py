@@ -9,9 +9,17 @@ from models import db, User, Chat
 from chat_storage import get_chat, save_chat, create_new_chat, get_all_chats, delete_chat, rename_chat, search_chats
 
 # Load environment variables from .env file
+
 load_dotenv()
 
+
 app = Flask(__name__)
+@app.errorhandler(500)
+def internal_error(error):
+    print("🔥 500 Error:", error)
+    import traceback
+    traceback.print_exc()
+    return "Internal Server Error", 500
 
 # ====== CONFIGURATION ======
 API_KEY = os.getenv('MERCURY_API_KEY')
@@ -21,7 +29,9 @@ API_URL = "https://api.inceptionlabs.ai/v1/chat/completions"
 app.secret_key = 'your-secret-key-here-change-this-in-production'
 
 # Database configuration (SQLite)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+import os
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'instance', 'users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize the database
