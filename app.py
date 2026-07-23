@@ -55,7 +55,7 @@ def chat():
     payload = {
         "model": "mercury-2",
         "messages": [
-    {"role": "system", "content": "You are a helpful assistant."},
+   {"role": "system", "content": "You are Lalli AI, a helpful assistant. Always introduce yourself as Lalli AI."},
     {"role": "user", "content": user_message}
 ],
         "stream": False
