@@ -5,110 +5,116 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="chat-container">
-        
-        <!-- HEADER -->
-        <div class="chat-header">
-            <h1> 🥳 Lalli AI</h1>
-            <p>Your Friend pranZal assistant is here</p>
+
+    <!-- ========== SIDEBAR ========== -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2> Lalli AI</h2>
+            <p>Your AI assistant</p>
         </div>
-        
-        <!-- MESSAGES AREA -->
-        <div class="chat-messages" id="messages">
-            <!-- Bot welcome message -->
-            <div class="message bot-message">
-                Hello! I'm Your Friend Lalli. How can I help you today?
+        <div class="sidebar-menu">
+            <div class="menu-item active">✨ New Chat</div>
+            <div class="menu-item">📋 History</div>
+            <div class="menu-item">⚙️ Settings</div>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-avatar">👤</span>
+                <span>Guest</span>
             </div>
         </div>
-        
-        <!-- INPUT AREA -->
-        <div class="chat-input">
-            <input type="text" id="user-input" placeholder="Type your message...">
-            <button id="send-btn">Send</button>
-        </div>
-        
     </div>
 
-    <!-- ========== JAVASCRIPT STARTS HERE ========== -->
+    <!-- ========== MAIN CHAT AREA ========== -->
+    <div class="main-chat">
+        <!-- Header (optional, we'll move title to sidebar) -->
+        <div class="chat-header">
+            <h1>Lalli AI</h1>
+            <p>Your friendly AI assistant</p>
+        </div>
+
+        <!-- MESSAGES AREA -->
+        <div class="chat-messages" id="messages">
+            <!-- Welcome message with avatar -->
+            <div class="message-wrapper bot">
+                <div class="avatar bot-avatar">🤖</div>
+                <div class="message bot-message">
+                    Hello! I'm Lalli AI. How can I help you today?
+                </div>
+            </div>
+        </div>
+
+        <!-- INPUT AREA -->
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Type your message..." />
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <!-- ========== JAVASCRIPT ========== -->
     <script>
-        // Get references to the HTML elements we need
+        // DOM elements
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-btn');
 
-        // Function to add a message to the chat
+        // Function to add a message with avatar
         function addMessage(text, sender) {
-            // Create a new div element
-            const messageDiv = document.createElement('div');
-            // Add the base class 'message' and a class for the sender
-            messageDiv.classList.add('message', sender + '-message');
-            // Set the text content
-            messageDiv.textContent = text;
-            // Append the new message to the messages container
-            messagesContainer.appendChild(messageDiv);
-            // Scroll down to show the latest message
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${sender}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${sender}-avatar`;
+            avatar.textContent = sender === 'user' ? '👤' : '🤖';
+
+            const bubble = document.createElement('div');
+            bubble.className = `message ${sender}-message`;
+            bubble.textContent = text;
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bubble);
+            messagesContainer.appendChild(wrapper);
+
+            // Scroll to bottom
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Function to send the user's message to the server
+        // Send message function (non‑streaming for simplicity – upgrade later)
         async function sendMessage() {
-            // Get the text from the input field and trim whitespace
             const message = userInput.value.trim();
-            if (message === '') return;  // Do nothing if empty
+            if (!message) return;
 
-            // Display the user's message in the chat
+            // Add user message
             addMessage(message, 'user');
-
-            // Clear the input field
             userInput.value = '';
-
-            // Disable the send button to prevent double submissions
             sendButton.disabled = true;
             sendButton.textContent = 'Sending...';
 
             try {
-                // Send the message to the Flask server
                 const response = await fetch('/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: message })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
                 });
-
-                // Parse the JSON response
                 const data = await response.json();
-
-                // Display the bot's reply
                 addMessage(data.reply, 'bot');
             } catch (error) {
-                // If something goes wrong, show an error message
                 addMessage('Sorry, something went wrong. Please try again.', 'bot');
-                console.error('Error:', error);
+                console.error(error);
             } finally {
-                // Re-enable the send button
                 sendButton.disabled = false;
                 sendButton.textContent = 'Send';
-                // Focus the input for the next message
                 userInput.focus();
             }
         }
 
-        // Event listener for the Send button click
+        // Event listeners
         sendButton.addEventListener('click', sendMessage);
-
-        // Event listener for pressing Enter in the input field
-        userInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
+        userInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') sendMessage();
         });
 
-        // Focus the input when the page loads
         userInput.focus();
-
-        console.log('Chat JavaScript is ready!');
     </script>
-    <!-- ========== JAVASCRIPT ENDS HERE ========== -->
 </body>
 </html>
