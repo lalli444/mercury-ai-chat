@@ -3,20 +3,28 @@
 <head>
     <title>Lalli AI Chat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
-    <!-- ========== SIDEBAR ========== -->
-    <div class="sidebar">
+    <!-- ===== SIDEBAR ===== -->
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h2> Lalli AI</h2>
-            <p>Your AI assistant</p>
+            <h2>🤖 Lalli AI</h2>
+            <button class="new-chat-btn" id="newChatBtn"><i class="fas fa-plus"></i> New Chat</button>
         </div>
-        <div class="sidebar-menu">
-            <div class="menu-item active">✨ New Chat</div>
-            <div class="menu-item">📋 History</div>
-            <div class="menu-item">⚙️ Settings</div>
+
+        <!-- Search Bar -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search conversations...">
+            <i class="fas fa-search"></i>
         </div>
+
+        <!-- Chat List -->
+        <div class="chat-list" id="chatList">
+            <!-- Chats will be loaded here dynamically -->
+        </div>
+
         <div class="sidebar-footer">
             <div class="user-info">
                 <span class="user-avatar">👤</span>
@@ -25,17 +33,16 @@
         </div>
     </div>
 
-    <!-- ========== MAIN CHAT AREA ========== -->
+    <!-- ===== MAIN CHAT AREA ===== -->
     <div class="main-chat">
-        <!-- Header (optional, we'll move title to sidebar) -->
         <div class="chat-header">
-            <h1>Lalli AI</h1>
-            <p>Your friendly AI assistant</p>
+            <h1 id="chatTitle">Lalli AI</h1>
+            <p id="chatSubtitle">Your friendly AI assistant</p>
         </div>
 
         <!-- MESSAGES AREA -->
         <div class="chat-messages" id="messages">
-            <!-- Welcome message with avatar -->
+            <!-- Welcome message -->
             <div class="message-wrapper bot">
                 <div class="avatar bot-avatar">🤖</div>
                 <div class="message bot-message">
@@ -51,14 +58,25 @@
         </div>
     </div>
 
-    <!-- ========== JAVASCRIPT ========== -->
+    <!-- ===== JAVASCRIPT ===== -->
     <script>
-        // DOM elements
+        // ----- DOM Elements -----
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-btn');
+        const chatList = document.getElementById('chatList');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const searchInput = document.getElementById('searchInput');
+        const chatTitle = document.getElementById('chatTitle');
+        const chatSubtitle = document.getElementById('chatSubtitle');
 
-        // Function to add a message with avatar
+        // ----- State -----
+        let currentChatId = null;    // ID of the chat we are currently viewing
+        let allChats = [];          // Full list of chats (for search filtering)
+
+        // ----- Helper Functions -----
+
+        // Add a message to the chat window
         function addMessage(text, sender) {
             const wrapper = document.createElement('div');
             wrapper.className = `message-wrapper ${sender}`;
@@ -74,30 +92,210 @@
             wrapper.appendChild(avatar);
             wrapper.appendChild(bubble);
             messagesContainer.appendChild(wrapper);
-
-            // Scroll to bottom
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Send message function (non‑streaming for simplicity – upgrade later)
+        // Clear all messages from the chat window
+        function clearMessages() {
+            messagesContainer.innerHTML = '';
+        }
+
+        // Load a chat's messages into the window
+        function loadChat(chatId) {
+            fetch(`/api/chat/${chatId}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Chat not found');
+                    return res.json();
+                })
+                .then(data => {
+                    currentChatId = chatId;
+                    clearMessages();
+                    
+                    // Update header
+                    chatTitle.textContent = data.title || 'Lalli AI';
+                    chatSubtitle.textContent = `Chat ID: ${chatId}`;
+
+                    // Display messages
+                    if (data.messages.length === 0) {
+                        addMessage("This chat is empty. Start a conversation!", 'bot');
+                    } else {
+                        data.messages.forEach(msg => {
+                            const sender = msg.role === 'user' ? 'user' : 'bot';
+                            addMessage(msg.content, sender);
+                        });
+                    }
+                    
+                    // Highlight the active chat in the sidebar
+                    highlightChat(chatId);
+                    loadChatList(); // Refresh list to update timestamps
+                })
+                .catch(err => {
+                    console.error('Error loading chat:', err);
+                    // If chat not found, create a new one
+                    if (err.message === 'Chat not found') {
+                        createNewChat();
+                    }
+                });
+        }
+
+        // Highlight the active chat in the sidebar
+        function highlightChat(chatId) {
+            document.querySelectorAll('.chat-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.chatId === chatId);
+            });
+        }
+
+        // Load the list of chats into the sidebar
+        function loadChatList(filter = '') {
+            fetch('/api/chats')
+                .then(res => res.json())
+                .then(chats => {
+                    allChats = chats;
+                    const filtered = filter 
+                        ? chats.filter(c => c.title.toLowerCase().includes(filter.toLowerCase()))
+                        : chats;
+
+                    chatList.innerHTML = '';
+                    if (filtered.length === 0) {
+                        chatList.innerHTML = '<div class="no-chats">No conversations found</div>';
+                        return;
+                    }
+
+                    filtered.forEach(chat => {
+                        const item = document.createElement('div');
+                        item.className = 'chat-item';
+                        if (chat.id === currentChatId) item.classList.add('active');
+                        item.dataset.chatId = chat.id;
+                        
+                        // Title
+                        const titleSpan = document.createElement('span');
+                        titleSpan.className = 'chat-title';
+                        titleSpan.textContent = chat.title || 'New Chat';
+                        
+                        // Delete button
+                        const delBtn = document.createElement('button');
+                        delBtn.className = 'delete-chat-btn';
+                        delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        delBtn.title = 'Delete this chat';
+                        delBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete "${chat.title}"?`)) {
+                                deleteChat(chat.id);
+                            }
+                        };
+
+                        item.appendChild(titleSpan);
+                        item.appendChild(delBtn);
+
+                        // Click to load chat
+                        item.onclick = () => loadChat(chat.id);
+
+                        // Double-click to rename
+                        titleSpan.ondblclick = (e) => {
+                            e.stopPropagation();
+                            const newTitle = prompt('Rename chat:', titleSpan.textContent);
+                            if (newTitle && newTitle.trim() !== '') {
+                                renameChat(chat.id, newTitle.trim());
+                            }
+                        };
+
+                        chatList.appendChild(item);
+                    });
+                })
+                .catch(err => console.error('Error loading chat list:', err));
+        }
+
+        // ----- API Actions -----
+
+        function createNewChat() {
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: 'New Chat' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                loadChat(data.id);
+                loadChatList();
+            })
+            .catch(err => console.error('Error creating chat:', err));
+        }
+
+        function deleteChat(chatId) {
+            fetch(`/api/chat/${chatId}`, { method: 'DELETE' })
+                .then(() => {
+                    if (currentChatId === chatId) {
+                        // If we deleted the current chat, go to a new one
+                        createNewChat();
+                    } else {
+                        loadChatList();
+                    }
+                })
+                .catch(err => console.error('Error deleting chat:', err));
+        }
+
+        function renameChat(chatId, newTitle) {
+            fetch(`/api/chat/${chatId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            })
+            .then(() => {
+                if (currentChatId === chatId) {
+                    chatTitle.textContent = newTitle;
+                }
+                loadChatList();
+            })
+            .catch(err => console.error('Error renaming chat:', err));
+        }
+
+        // ----- Sending a Message (with saving) -----
+
         async function sendMessage() {
             const message = userInput.value.trim();
             if (!message) return;
 
-            // Add user message
+            // If there's no current chat, create one
+            if (!currentChatId) {
+                await createNewChat();
+                // After creating, currentChatId is set. But we need the ID.
+                // We'll handle this by using the chat_id from the response.
+            }
+
+            // Add user message to UI
             addMessage(message, 'user');
             userInput.value = '';
             sendButton.disabled = true;
             sendButton.textContent = 'Sending...';
 
             try {
+                // Send with currentChatId (if exists)
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ 
+                        message: message,
+                        chat_id: currentChatId  // Send the current chat ID
+                    })
                 });
                 const data = await response.json();
+                
+                // Update currentChatId (in case a new one was created)
+                if (data.chat_id) {
+                    currentChatId = data.chat_id;
+                }
+                
+                // Add bot reply
                 addMessage(data.reply, 'bot');
+                
+                // Update sidebar (new title, timestamp)
+                loadChatList();
+                
+                // Update header title if it's a new chat
+                if (data.chat_id) {
+                    chatTitle.textContent = message.slice(0, 30) + (message.length > 30 ? '...' : '');
+                }
+
             } catch (error) {
                 addMessage('Sorry, something went wrong. Please try again.', 'bot');
                 console.error(error);
@@ -108,13 +306,34 @@
             }
         }
 
-        // Event listeners
+        // ----- Event Listeners -----
+
         sendButton.addEventListener('click', sendMessage);
         userInput.addEventListener('keydown', e => {
             if (e.key === 'Enter') sendMessage();
         });
 
+        newChatBtn.addEventListener('click', createNewChat);
+
+        // Search handler
+        searchInput.addEventListener('input', (e) => {
+            loadChatList(e.target.value);
+        });
+
+        // ----- Initial Load -----
+
+        // Load the chat list when the page loads
+        loadChatList();
+
+        // If there's no chat, create one automatically
+        setTimeout(() => {
+            if (!currentChatId) {
+                createNewChat();
+            }
+        }, 100);
+
         userInput.focus();
+        console.log('Lalli AI Chat is ready!');
     </script>
 </body>
 </html>
